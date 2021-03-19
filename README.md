@@ -1,0 +1,3 @@
+# Iago
+
+cargo run --release
