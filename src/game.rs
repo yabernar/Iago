@@ -1,3 +1,5 @@
+use std::cmp;
+
 pub fn new_game() -> (u64, u64){
     (68853694464, 34628173824)
 }
@@ -129,6 +131,45 @@ pub fn depth_search(mut starting_move : Move, depth: u8){
             depth_search(mv, depth-1)
         }
     }
+}
+
+
+pub fn alphabeta(mut starting_move : Move, i : i64, depth : u8) -> i64{
+    let pseudo_legal_moves = create_potential_moves_mask(starting_move.game);
+    let legal_moves = process_pseudo_legal_moves(starting_move.game, pseudo_legal_moves);
+    unsafe {
+        TOTAL_MOVES += legal_moves.len() as u64;
+        EXPLORED_MOVES += 1;
+    }
+    starting_move.next = legal_moves;
+
+    if (starting_move.next.len() == 0) || (depth == 0){
+        return 100 - (count_bits(starting_move.game.0) as i64 - count_bits(starting_move.game.1) as i64)
+    }
+    let mut j : i64 = -1000; // maximum is -100 probably
+    for mv in starting_move.next {
+        j = cmp::max(j, alphabeta(mv, j, depth-1));
+        if -j <= i{
+           return -j
+        }
+    }
+    return -j
+}
+
+pub fn count_bits(v: u64) -> u64{
+    let mut c : u64 = 0; // c accumulates the total bits set in v
+    let mut tmp : u64 = v;
+    while tmp > 0 {
+        tmp &= tmp - 1; // clear the least significant bit set
+        c += 1
+    }
+    return c
+}
+
+pub fn count_bits_fast_but_not_working(v : u64) -> u64{
+    let mut tmp = v - ((v >> 1) & 0x5555555555555555);
+    tmp = tmp & 0x3333333333333333 + ((tmp >> 2) & 0x3333333333333333);
+    (((tmp + (tmp >> 4)) & 0xF0F0F0F0F0F0F0F) * 0x101010101010101) >> 56 // count
 }
 
 pub fn reverse(tuple: (u64, u64)) -> (u64, u64){

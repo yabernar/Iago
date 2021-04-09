@@ -3,7 +3,10 @@ use std::io;
 use game::new_game;
 
 fn main() {
-    states_search(9);
+    //states_search(10);
+    ab_search(12);
+    //play_game()
+    //println!("{}", game::count_bits(9))
 }
 
 fn play_game(){
@@ -43,6 +46,10 @@ fn play_game(){
 }
 
 fn states_search(depth: u8){
+    unsafe {
+        game::TOTAL_MOVES = 0;
+        game::EXPLORED_MOVES = 0;
+    }
     let start = game::Move {
         game : new_game(),
         played_piece : 0,
@@ -51,6 +58,27 @@ fn states_search(depth: u8){
     use std::time::Instant;
     let now = Instant::now();
     game::depth_search(start, depth);
+    let elapsed = now.elapsed();
+    unsafe{
+        println!("--------------------------------------------------------------------\n\tDepth : {}
+                 \n\tExplored : {}\n\tTotal : {}\n\tElapsed : {:.3?}\n\tMoves per second : {}\n\tAverage Moves per position : {}\n", 
+        depth, game::EXPLORED_MOVES, game::TOTAL_MOVES, elapsed, game::TOTAL_MOVES/(elapsed.as_millis() as u64)*1000, game::TOTAL_MOVES/game::EXPLORED_MOVES);
+    }
+}
+
+fn ab_search(depth: u8){
+    unsafe {
+        game::TOTAL_MOVES = 0;
+        game::EXPLORED_MOVES = 0;
+    }
+    let start = game::Move {
+        game : new_game(),
+        played_piece : 0,
+        next : Vec::new(),
+    };
+    use std::time::Instant;
+    let now = Instant::now();
+    game::alphabeta(start, -1000, depth);
     let elapsed = now.elapsed();
     unsafe{
         println!("--------------------------------------------------------------------\n\tDepth : {}
@@ -82,4 +110,5 @@ fn print_board(board:(u64, u64)){
         println!("");
     }
     println!("  a b c d e f g h");
+    println!("Black : {} White : {}", game::count_bits(board.0), game::count_bits(board.0))
 }
