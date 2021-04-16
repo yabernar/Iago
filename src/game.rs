@@ -1,7 +1,8 @@
 use std::cmp;
+use std::collections::HashMap;
 
 pub fn new_game() -> (u64, u64){
-    (68853694464, 34628173824)
+    (1081344, 2113536)
 }
 /*
 fn put_piece((player : u64, adversary : u64), position:u64) -> (u64, u64){
@@ -12,10 +13,10 @@ fn put_piece((player : u64, adversary : u64), position:u64) -> (u64, u64){
 }*/
 
 // Bitboards with borders set to 1;
-pub static TOP_BORDER: u64 = 255;
-pub static LEFT_BORDER: u64 = 72340172838076673;
-pub static RIGHT_BORDER: u64 = 9259542123273814144;
-pub static BOTTOM_BORDER: u64 = 18374686479671623680;
+pub static TOP_BORDER: u64 = 63;
+pub static LEFT_BORDER: u64 = 1090785345;
+pub static RIGHT_BORDER: u64 = 34905131040;
+pub static BOTTOM_BORDER: u64 = 67645734912;
 pub static TOPLEFT_BORDER: u64 = TOP_BORDER | LEFT_BORDER;
 pub static TOPRIGHT_BORDER: u64 = TOP_BORDER | RIGHT_BORDER;
 pub static BOTTOMLEFT_BORDER: u64 = BOTTOM_BORDER | LEFT_BORDER;
@@ -24,18 +25,19 @@ pub static BOTTOMRIGHT_BORDER: u64 = BOTTOM_BORDER | RIGHT_BORDER;
 pub static mut TOTAL_MOVES: u64 = 0;
 pub static mut EXPLORED_MOVES: u64 = 0;
 
+
 // Assumes the position sent is a legal move
 pub fn play_move(game :(u64, u64), position:u64) -> (u64, u64){
     let mut player_next = game.0 | position;
 
-    right_shift_search(TOP_BORDER, game, position, &mut player_next, 8);
+    right_shift_search(TOP_BORDER, game, position, &mut player_next, 6);
     right_shift_search(LEFT_BORDER, game, position, &mut player_next, 1);
     left_shift_search(RIGHT_BORDER, game, position, &mut player_next, 1);
-    left_shift_search(BOTTOM_BORDER, game, position, &mut player_next, 8);
-    right_shift_search(TOPLEFT_BORDER, game, position, &mut player_next, 9);
-    right_shift_search(TOPRIGHT_BORDER, game, position, &mut player_next, 7);
-    left_shift_search(BOTTOMLEFT_BORDER, game, position, &mut player_next, 7);
-    left_shift_search(BOTTOMRIGHT_BORDER, game, position, &mut player_next, 9);
+    left_shift_search(BOTTOM_BORDER, game, position, &mut player_next, 6);
+    right_shift_search(TOPLEFT_BORDER, game, position, &mut player_next, 7);
+    right_shift_search(TOPRIGHT_BORDER, game, position, &mut player_next, 5);
+    left_shift_search(BOTTOMLEFT_BORDER, game, position, &mut player_next, 5);
+    left_shift_search(BOTTOMRIGHT_BORDER, game, position, &mut player_next, 7);
 
     // Checking if some pieces have been flipped
     if player_next ^ (game.0 | position) == 0 {
@@ -87,9 +89,9 @@ fn left_shift_search(border : u64, game : (u64, u64), position : u64, player_nex
 
 pub fn create_potential_moves_mask(game : (u64, u64)) -> u64 {
     let all_pieces = game.0 | game.1;
-    all_pieces ^ ((((game.1 << 1) | (game.1 << 9) | (game.1 >> 7) | LEFT_BORDER) ^ LEFT_BORDER) | 
-                  (((game.1 >> 1) | (game.1 >> 9) | (game.1 << 7) | RIGHT_BORDER) ^ RIGHT_BORDER) |
-                  (game.1 << 8) | (game.1 >> 8) | all_pieces)
+    all_pieces ^ ((((game.1 << 1) | (game.1 << 7) | (game.1 >> 5) | LEFT_BORDER) ^ LEFT_BORDER) | 
+                  (((game.1 >> 1) | (game.1 >> 7) | (game.1 << 5) | RIGHT_BORDER) ^ RIGHT_BORDER) |
+                  (game.1 << 6) | (game.1 >> 6) | all_pieces)
 }
 
 pub struct Move {
@@ -98,10 +100,14 @@ pub struct Move {
     pub next : Vec<Move>,
 }
 
-pub fn process_pseudo_legal_moves(game: (u64, u64), moves_mask: u64) -> Vec<Move>{
+pub fn process_pseudo_legal_moves_memory(game: (u64, u64), moves_mask: u64, POSITIONS: &mut HashMap<u128, bool>) -> Vec<Move>{
     let mut result : Vec<Move> = Vec::new();
     let mut start = 1;
-    for _i in 0..64 {
+    let index : u128 = (game.0 as u128) << 64 + (game.1 as u128);
+    if POSITIONS.contains_key(&index){
+        return result
+    }
+    for _i in 0..36 {
         if start & moves_mask > 0 {
             let next_game = reverse(play_move(game, start));
             if (next_game.0 | next_game.1) > 0{
@@ -111,6 +117,31 @@ pub fn process_pseudo_legal_moves(game: (u64, u64), moves_mask: u64) -> Vec<Move
                     next : Vec::new(),
                 };
                 result.push(leaf);
+                let index : u128 = (game.0 as u128) << 64 + (game.1 as u128);
+                POSITIONS.insert(index, true);
+            }
+        }
+        start = start << 1;
+    }
+    return result
+}
+
+
+pub fn process_pseudo_legal_moves(game: (u64, u64), moves_mask: u64) -> Vec<Move>{
+    let mut result : Vec<Move> = Vec::new();
+    let mut start = 1;
+    let index : u128 = (game.0 as u128) << 64 + (game.1 as u128);
+    for _i in 0..36 {
+        if start & moves_mask > 0 {
+            let next_game = reverse(play_move(game, start));
+            if (next_game.0 | next_game.1) > 0{
+                let leaf = Move {
+                    game : next_game,
+                    played_piece : start,
+                    next : Vec::new(),
+                };
+                result.push(leaf);
+                let index : u128 = (game.0 as u128) << 64 + (game.1 as u128);
             }
         }
         start = start << 1;
@@ -134,9 +165,9 @@ pub fn depth_search(mut starting_move : Move, depth: u8){
 }
 
 
-pub fn alphabeta(mut starting_move : Move, i : i64, depth : u8) -> i64{
+pub fn alphabeta(mut starting_move : Move, i : i64, depth : u8, POSITIONS : &mut HashMap<u128, bool>) -> i64{
     let pseudo_legal_moves = create_potential_moves_mask(starting_move.game);
-    let legal_moves = process_pseudo_legal_moves(starting_move.game, pseudo_legal_moves);
+    let legal_moves = process_pseudo_legal_moves_memory(starting_move.game, pseudo_legal_moves, POSITIONS);
     unsafe {
         TOTAL_MOVES += legal_moves.len() as u64;
         EXPLORED_MOVES += 1;
@@ -148,7 +179,7 @@ pub fn alphabeta(mut starting_move : Move, i : i64, depth : u8) -> i64{
     }
     let mut j : i64 = -1000; // maximum is -100 probably
     for mv in starting_move.next {
-        j = cmp::max(j, alphabeta(mv, j, depth-1));
+        j = cmp::max(j, alphabeta(mv, j, depth-1, POSITIONS));
         if -j <= i{
            return -j
         }
